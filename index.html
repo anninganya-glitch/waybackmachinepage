@@ -401,11 +401,14 @@
         const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
         const mainNav = document.getElementById('mainNav');
 
-        // 存储允许跳转的URL列表
+        // 存储允许跳转的URL映射
         const allowedUrls = {
             'mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
             'www.mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
+            'http://mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
             'http://www.mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
+            'https://mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
+            'https://www.mygarden.net': 'https://anninganya-glitch.github.io/waybackmachine/',
         };
 
         // 移动端菜单切换
@@ -413,13 +416,28 @@
             mainNav.classList.toggle('show');
         });
 
+        // 更健壮的URL规范化函数
         function normalizeUrl(url) {
+            if (!url) return '';
+            
             url = url.trim().toLowerCase();
-            // 移除协议
-            url = url.replace(/^https?:\/\//, '');
-            // 移除尾部斜杠
-            url = url.replace(/\/$/, '');
-            return url;
+            
+            // 如果URL没有协议，添加默认的http://
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'http://' + url;
+            }
+            
+            try {
+                // 使用URL API解析和标准化URL
+                const urlObj = new URL(url);
+                // 返回主机名（域名）
+                return urlObj.hostname;
+            } catch (e) {
+                // 如果解析失败，尝试简单处理
+                url = url.replace(/^https?:\/\//, '');
+                url = url.split('/')[0];
+                return url;
+            }
         }
 
         function showMessage(text, type) {
@@ -444,8 +462,20 @@
             
             if (allowedUrls[normalizedUrl]) {
                 showMessage('找到存档！正在跳转...', 'success');
+                
+                // 使用更安全的跳转方式，避免弹窗拦截
                 setTimeout(() => {
-                    window.open(allowedUrls[normalizedUrl], '_blank');
+                    try {
+                        // 尝试直接在当前窗口跳转
+                        window.location.href = allowedUrls[normalizedUrl];
+                    } catch (e) {
+                        // 如果失败，尝试使用window.open
+                        const newWindow = window.open(allowedUrls[normalizedUrl], '_blank');
+                        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                            // 如果仍然失败，提示用户手动访问
+                            showMessage('跳转被阻止，请手动访问: ' + allowedUrls[normalizedUrl], 'error');
+                        }
+                    }
                 }, 1000);
             } else {
                 showMessage('未找到该网址的存档记录', 'error');
@@ -458,6 +488,11 @@
             if (e.key === 'Enter') {
                 handleSearch();
             }
+        });
+
+        // 添加加载完成后的焦点设置
+        window.addEventListener('load', () => {
+            urlInput.focus();
         });
     </script>
 </body>
